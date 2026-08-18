@@ -1,7 +1,7 @@
 .stage {
   container-type: inline-size;
   position: relative;
-  width: min(100%, calc((100vh - 286px) * 16 / 9));
+  width: min(100%, calc((100dvh - 258px) * 16 / 9));
   aspect-ratio: 16/9;
   overflow: hidden;
   border: 1px solid #45495b;

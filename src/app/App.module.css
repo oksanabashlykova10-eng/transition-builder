@@ -1,6 +1,6 @@
 .app {
   display: grid;
-  grid-template: 64px minmax(0, 1fr) 156px / 220px minmax(480px, 1fr) 280px;
+  grid-template: 64px minmax(0, 1fr) clamp(78px, 10vh, 104px) / 220px minmax(480px, 1fr) 8px var(--inspector-width, 280px);
   width: 100vw;
   height: 100vh;
   color: #e9ebf4;
@@ -11,7 +11,7 @@
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 14px;
   padding: 0 16px;
   border-bottom: 1px solid #272a38;
   background: #151722;
@@ -100,6 +100,7 @@
   gap: 6px;
   flex: 1;
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 .actions button,
 .workspaceBar button {
@@ -374,6 +375,32 @@
 }
 .inspector {
   border-left: 1px solid #272a38;
+}
+.inspectorResizeHandle {
+  position: relative;
+  z-index: 20;
+  min-height: 0;
+  cursor: col-resize;
+  touch-action: none;
+  background: #151722;
+  border-inline: 1px solid #272a38;
+}
+.inspectorResizeHandle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 54px;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  background: #55e8ff66;
+  box-shadow: 0 0 9px #55e8ff88;
+}
+.inspectorResizeHandle:hover::after,
+.inspectorResizeHandle:active::after {
+  background: #8af1ff;
+  box-shadow: 0 0 15px #55e8ff;
 }
 .panelTitle {
   padding: 16px 16px 12px;
@@ -756,6 +783,9 @@
     grid-template-columns: 190px minmax(420px, 1fr);
   }
   .inspector {
+    display: none;
+  }
+  .inspectorResizeHandle {
     display: none;
   }
   .brand {

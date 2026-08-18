@@ -4,6 +4,7 @@ import {
   useState,
   type CSSProperties,
   type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
   createUrlAsset,
@@ -1635,6 +1636,7 @@ export function App() {
     [iframeCopied, setIframeCopied] = useState(false),
     [myTemplates, setMyTemplates] = useState<StoredTemplate[]>([]),
     [readyToSave, setReadyToSave] = useState(false),
+    [inspectorWidth, setInspectorWidth] = useState(280),
     [appDialog, setAppDialog] = useState<AppDialog | null>(null),
     [dialogInput, setDialogInput] = useState(""),
     [backdrop, setBackdrop] = useState<PreviewBackdrop>({
@@ -1681,6 +1683,29 @@ export function App() {
       initialValue,
       onConfirm,
     });
+  };
+  const beginInspectorResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = inspectorWidth;
+    const onMove = (moveEvent: PointerEvent) => {
+      const maximum = Math.min(560, window.innerWidth * 0.45);
+      setInspectorWidth(
+        Math.round(
+          Math.min(maximum, Math.max(220, startWidth + startX - moveEvent.clientX)),
+        ),
+      );
+    };
+    const onEnd = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd, { once: true });
   };
   const actions = useEditorStore.getState();
   const sceneAnimation = project.timing.sceneAnimation ?? {
@@ -1828,7 +1853,12 @@ export function App() {
   return (
     <main
       className={styles.app}
-      style={{ "--accent": accent } as CSSProperties}
+      style={
+        {
+          "--accent": accent,
+          "--inspector-width": `${inspectorWidth}px`,
+        } as CSSProperties
+      }
     >
       <header className={styles.toolbar}>
         <div className={styles.brand}>
@@ -1870,10 +1900,6 @@ export function App() {
           >
             Новый
           </button>
-          <button onClick={() => projectInput.current?.click()}>
-            Открыть JSON
-          </button>
-          <button onClick={() => void saveJson()}>Сохранить JSON</button>
           <input
             ref={projectInput}
             className={styles.hiddenInput}
@@ -2354,6 +2380,17 @@ export function App() {
           <EditorScene restartKey={restartKey} previewBackdrop={backdrop} />
         </div>
       </section>
+      <div
+        className={styles.inspectorResizeHandle}
+        role="separator"
+        aria-label="Изменить ширину панели настроек"
+        aria-orientation="vertical"
+        aria-valuemin={220}
+        aria-valuemax={560}
+        aria-valuenow={inspectorWidth}
+        title="Потяните мышью, чтобы изменить ширину настроек"
+        onPointerDown={beginInspectorResize}
+      />
       <aside className={styles.inspector}>
         <div className={styles.panelTitle}>Настройки</div>
         <Inspector layer={selected} />
