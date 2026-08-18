@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.local
+.DS_Store
+Thumbs.db
+
+# Local specification and large visual references are not part of the app.
+CODEX_TASK_Transition_Builder.md
+ivan_tsarevich_next_morning_transition_small_slow_preview.html
+ivan_tsarevich_next_morning_transition_small_slow_genially.txt
