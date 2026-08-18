@@ -291,6 +291,78 @@
   background: linear-gradient(135deg, #c6a3ff, #7fdfff);
   font-weight: 800;
 }
+.appDialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #05060be6;
+  backdrop-filter: blur(8px);
+}
+.appDialog {
+  display: grid;
+  gap: 14px;
+  width: min(480px, 100%);
+  padding: 24px;
+  color: #fff;
+  border: 1px solid #55e8ff;
+  border-radius: 14px;
+  background: #151722;
+  box-shadow:
+    0 0 42px #35dcff45,
+    0 24px 80px #000d;
+}
+.appDialog strong {
+  color: #73eaff;
+  font-size: 20px;
+  text-shadow: 0 0 12px #45dfff;
+}
+.appDialog p {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.appDialog input {
+  width: 100%;
+  padding: 10px 12px;
+  color: #fff;
+  border: 1px solid #555d75;
+  border-radius: 7px;
+  outline: none;
+  background: #0c0e15;
+}
+.appDialog input:focus {
+  border-color: #55e8ff;
+  box-shadow: 0 0 14px #45dfff4d;
+}
+.appDialog > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.appDialog button {
+  padding: 9px 13px;
+  color: #fff;
+  border: 1px solid #555d75;
+  border-radius: 7px;
+  background: #242838;
+}
+.appDialog .primaryDialogAction {
+  color: #11131b;
+  border: 0;
+  background: linear-gradient(135deg, #c6a3ff, #7fdfff);
+  font-weight: 800;
+}
+.appDialog .dangerDialogAction {
+  color: #fff;
+  border-color: #ff626d;
+  background: #9d2635;
+  box-shadow: 0 0 14px #ff425566;
+  font-weight: 800;
+}
 .library,
 .inspector {
   background: #13151f;

@@ -65,6 +65,29 @@ const fonts = [
   "Caveat",
 ];
 
+type AppDialog =
+  | {
+      kind: "notice";
+      title: string;
+      message: string;
+    }
+  | {
+      kind: "confirm";
+      title: string;
+      message: string;
+      confirmLabel?: string;
+      danger?: boolean;
+      onConfirm: () => void;
+    }
+  | {
+      kind: "prompt";
+      title: string;
+      message: string;
+      initialValue: string;
+      confirmLabel?: string;
+      onConfirm: (value: string) => void;
+    };
+
 function ImageControls({ layer }: { layer: ImageLayer }) {
   const [url, setUrl] = useState(""),
     [message, setMessage] = useState("");
@@ -1612,6 +1635,8 @@ export function App() {
     [iframeCopied, setIframeCopied] = useState(false),
     [myTemplates, setMyTemplates] = useState<StoredTemplate[]>([]),
     [readyToSave, setReadyToSave] = useState(false),
+    [appDialog, setAppDialog] = useState<AppDialog | null>(null),
+    [dialogInput, setDialogInput] = useState(""),
     [backdrop, setBackdrop] = useState<PreviewBackdrop>({
       mode: "checkerboard",
       color: "#282b36",
@@ -1627,6 +1652,36 @@ export function App() {
     showSafeArea = useEditorStore((s) => s.showSafeArea),
     snappingEnabled = useEditorStore((s) => s.snappingEnabled),
     selected = project.layers.find((layer) => layer.id === selectedId);
+  const showNotice = (title: string, message: string) =>
+    setAppDialog({ kind: "notice", title, message });
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    options?: { confirmLabel?: string; danger?: boolean },
+  ) =>
+    setAppDialog({
+      kind: "confirm",
+      title,
+      message,
+      onConfirm,
+      ...options,
+    });
+  const showPrompt = (
+    title: string,
+    message: string,
+    initialValue: string,
+    onConfirm: (value: string) => void,
+  ) => {
+    setDialogInput(initialValue);
+    setAppDialog({
+      kind: "prompt",
+      title,
+      message,
+      initialValue,
+      onConfirm,
+    });
+  };
   const actions = useEditorStore.getState();
   const sceneAnimation = project.timing.sceneAnimation ?? {
     enter: "none" as const,
@@ -1712,7 +1767,7 @@ export function App() {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      window.alert(
+      showNotice("Не удалось сохранить проект", 
         error instanceof Error ? error.message : "Не удалось сохранить проект.",
       );
     }
@@ -1724,8 +1779,9 @@ export function App() {
     try {
       actions.loadProject(await deserializeProject(await file.text()));
       setReadyToSave(true);
+      setExportResult(null);
     } catch (error) {
-      window.alert(
+      showNotice("Не удалось открыть проект",
         error instanceof Error ? error.message : "Не удалось открыть проект.",
       );
     }
@@ -1736,7 +1792,7 @@ export function App() {
       const html = await exportHtml(project);
       setExportResult({ html, iframe: iframeCode(html) });
     } catch (error) {
-      window.alert(
+      showNotice("Ошибка экспорта",
         error instanceof Error
           ? error.message
           : "Не удалось подготовить экспорт.",
@@ -1763,7 +1819,10 @@ export function App() {
       setIframeCopied(true);
       window.setTimeout(() => setIframeCopied(false), 1800);
     } catch {
-      window.alert("Не удалось скопировать код. Выделите его вручную.");
+      showNotice(
+        "Не удалось скопировать код",
+        "Выделите код iframe и скопируйте его вручную.",
+      );
     }
   };
   return (
@@ -1794,14 +1853,19 @@ export function App() {
         <nav className={styles.actions}>
           <button
             onClick={() => {
-              if (
-                !project.layers.length ||
-                window.confirm("Начать новый проект?")
-              ) {
+              const createNew = () => {
                 actions.newProject();
                 void deleteDraft();
                 setReadyToSave(true);
-              }
+              };
+              if (!project.layers.length) createNew();
+              else
+                showConfirm(
+                  "Начать новый проект?",
+                  "Текущая композиция будет заменена. При необходимости сначала сохраните её в JSON.",
+                  createNew,
+                  { confirmLabel: "Начать новый", danger: true },
+                );
             }}
           >
             Новый
@@ -1858,10 +1922,11 @@ export function App() {
       {draftToRestore && (
         <div className={styles.restoreOverlay} role="dialog" aria-modal="true">
           <div className={styles.restoreDialog}>
-            <strong>Найден предыдущий незавершённый проект</strong>
+            <strong>Открыть последнюю сохранённую версию?</strong>
             <p>
-              «{draftToRestore.metadata.name}» можно восстановить вместе со
-              всеми слоями и настройками.
+              «{draftToRestore.metadata.name}» · сохранено {new Date(
+                draftToRestore.metadata.updatedAt,
+              ).toLocaleString("ru-RU")}. Все слои и настройки будут восстановлены.
             </p>
             <div>
               <button
@@ -1872,7 +1937,7 @@ export function App() {
                   setReadyToSave(true);
                 }}
               >
-                Продолжить
+                Открыть последнюю
               </button>
               <button
                 onClick={() => {
@@ -2120,13 +2185,25 @@ export function App() {
               className={styles.saveAsTemplate}
               disabled={!project.layers.length}
               onClick={() => {
-                const name = window
-                  .prompt("Название нового шаблона", project.metadata.name)
-                  ?.trim();
-                if (!name) return;
-                void saveTemplate(name, project)
-                  .then((item) => setMyTemplates((items) => [item, ...items]))
-                  .catch(() => window.alert("Не удалось сохранить шаблон."));
+                showPrompt(
+                  "Название нового шаблона",
+                  "Введите понятное название для текущей композиции.",
+                  project.metadata.name,
+                  (value) => {
+                    const name = value.trim();
+                    if (!name) return;
+                    void saveTemplate(name, project)
+                      .then((item) =>
+                        setMyTemplates((items) => [item, ...items]),
+                      )
+                      .catch(() =>
+                        showNotice(
+                          "Не удалось сохранить шаблон",
+                          "Попробуйте ещё раз или сохраните проект в JSON.",
+                        ),
+                      );
+                  },
+                );
               }}
             >
               ＋ Сохранить текущую композицию как шаблон
@@ -2139,15 +2216,18 @@ export function App() {
                     <div key={template.id}>
                       <button
                         onClick={() => {
-                          if (
-                            project.layers.length &&
-                            !window.confirm(
-                              `Заменить текущую композицию шаблоном «${template.name}»?`,
-                            )
-                          )
-                            return;
-                          actions.loadProject(template.project);
-                          setRestartKey((key) => key + 1);
+                          const applyTemplate = () => {
+                            actions.loadProject(template.project);
+                            setRestartKey((key) => key + 1);
+                          };
+                          if (!project.layers.length) applyTemplate();
+                          else
+                            showConfirm(
+                              "Заменить текущую композицию?",
+                              `Будет открыт шаблон «${template.name}».`,
+                              applyTemplate,
+                              { confirmLabel: "Открыть шаблон" },
+                            );
                         }}
                       >
                         <strong>{template.name}</strong>
@@ -2157,16 +2237,19 @@ export function App() {
                         className={styles.deleteTemplate}
                         title="Удалить шаблон"
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Удалить шаблон «${template.name}»?`,
-                            )
-                          )
-                            return;
-                          void deleteTemplate(template.id).then(() =>
-                            setMyTemplates((items) =>
-                              items.filter((item) => item.id !== template.id),
-                            ),
+                          showConfirm(
+                            "Удалить шаблон?",
+                            `Шаблон «${template.name}» будет удалён без возможности восстановления.`,
+                            () => {
+                              void deleteTemplate(template.id).then(() =>
+                                setMyTemplates((items) =>
+                                  items.filter(
+                                    (item) => item.id !== template.id,
+                                  ),
+                                ),
+                              );
+                            },
+                            { confirmLabel: "Удалить", danger: true },
                           );
                         }}
                       >
@@ -2187,15 +2270,18 @@ export function App() {
                 <button
                   key={template.id}
                   onClick={() => {
-                    if (
-                      project.layers.length &&
-                      !window.confirm(
-                        `Заменить текущую композицию шаблоном «${template.title}»?`,
-                      )
-                    )
-                      return;
-                    actions.loadProject(template.create());
-                    setRestartKey((key) => key + 1);
+                    const applyTemplate = () => {
+                      actions.loadProject(template.create());
+                      setRestartKey((key) => key + 1);
+                    };
+                    if (!project.layers.length) applyTemplate();
+                    else
+                      showConfirm(
+                        "Заменить текущую композицию?",
+                        `Будет открыт шаблон «${template.title}».`,
+                        applyTemplate,
+                        { confirmLabel: "Открыть шаблон" },
+                      );
                   }}
                 >
                   <span
@@ -2396,8 +2482,69 @@ export function App() {
               >
                 Скачать HTML
               </button>
+              <button onClick={() => void saveJson()}>
+                Сохранить проект JSON
+              </button>
+              <button onClick={() => projectInput.current?.click()}>
+                Загрузить проект JSON
+              </button>
             </div>
           </div>
+        </div>
+      )}
+      {appDialog && (
+        <div className={styles.appDialogOverlay} role="presentation">
+          <form
+            className={styles.appDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="app-dialog-title"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (appDialog.kind === "notice") {
+                setAppDialog(null);
+                return;
+              }
+              if (appDialog.kind === "prompt") {
+                const value = dialogInput.trim();
+                if (!value) return;
+                appDialog.onConfirm(value);
+              } else appDialog.onConfirm();
+              setAppDialog(null);
+            }}
+          >
+            <strong id="app-dialog-title">{appDialog.title}</strong>
+            <p>{appDialog.message}</p>
+            {appDialog.kind === "prompt" && (
+              <input
+                autoFocus
+                value={dialogInput}
+                onChange={(event) => setDialogInput(event.target.value)}
+                aria-label="Название"
+              />
+            )}
+            <div>
+              <button
+                autoFocus={appDialog.kind !== "prompt"}
+                className={
+                  appDialog.kind === "confirm" && appDialog.danger
+                    ? styles.dangerDialogAction
+                    : styles.primaryDialogAction
+                }
+                type="submit"
+              >
+                {appDialog.kind === "notice"
+                  ? "Понятно"
+                  : appDialog.confirmLabel ??
+                    (appDialog.kind === "prompt" ? "Сохранить" : "Продолжить")}
+              </button>
+              {appDialog.kind !== "notice" && (
+                <button type="button" onClick={() => setAppDialog(null)}>
+                  Отмена
+                </button>
+              )}
+            </div>
+          </form>
         </div>
       )}
       {preview && (
